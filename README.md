@@ -25,7 +25,7 @@ Open http://localhost:8069 in your browser.
 
 | Version | Branch | Clone Command |
 |---------|--------|---------------|
-| **Odoo 19** | `main` (default) | `git clone https://github.com/taqat-techno/odoo-container.git` |
+| **Odoo 19** | `v19` (default) | `git clone https://github.com/taqat-techno/odoo-container.git` |
 | Odoo 18 | `v18` | `git clone -b v18 https://github.com/taqat-techno/odoo-container.git` |
 | Odoo 17 | `v17` | `git clone -b v17 https://github.com/taqat-techno/odoo-container.git` |
 | Odoo 16 | `v16` | `git clone -b v16 https://github.com/taqat-techno/odoo-container.git` |
