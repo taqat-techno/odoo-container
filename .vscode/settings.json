@@ -1,0 +1,36 @@
+{
+    "python.analysis.extraPaths": [
+        "./odoo",
+        "./odoo/addons",
+        "./projects"
+    ],
+    "python.languageServer": "Pylance",
+    "python.linting.enabled": true,
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.git": true,
+        "**/*.pyc": true,
+        "odoo.egg-info": true
+    },
+    "search.exclude": {
+        "odoo.egg-info": true,
+        "**/node_modules": true,
+        "**/__pycache__": true
+    },
+    "editor.rulers": [79, 120],
+    "files.associations": {
+        "*.xml": "xml"
+    },
+    "[python]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    },
+    "[xml]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    },
+    "[javascript]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    }
+}
