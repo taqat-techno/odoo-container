@@ -1,0 +1,10 @@
+.env
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+logs/*.log
+nul
+ralph-logs/

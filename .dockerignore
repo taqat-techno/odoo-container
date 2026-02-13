@@ -1,0 +1,14 @@
+.git
+.vscode
+.idea
+.claude
+__pycache__
+*.pyc
+*.pyo
+.env
+logs/
+projects/
+*.egg-info
+.mypy_cache
+.pytest_cache
+ralph-logs/
