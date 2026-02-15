@@ -1,15 +1,24 @@
 # Init Docker Container - Interactive Docker Setup for Odoo Projects
 
-Set up a project-specific Docker environment for any Odoo version (14-19) with standard ports (8069/8072/5433). Only one container can run at a time.
+Set up a project-specific Docker environment with standard ports (8069/8072/5433). The Odoo version is auto-detected from the current git branch. Only one container can run at a time.
 
 ## Usage
-- `/init-docker-container` - Interactive mode, prompts for version and project
+- `/init-docker-container` - Interactive mode, auto-detects version, prompts for project
 
 Arguments (if provided): $ARGUMENTS
 
 ## Prerequisites
 - Docker Desktop must be running
-- The project folder must already be cloned into the `projects/` directory of the target Odoo version
+- This repo must be cloned from `taqat-techno/odoo-container` (any version branch)
+- The project folder must already be cloned into the `projects/` directory
+
+```bash
+# Example: Clone Odoo 17 environment, then add your project
+git clone -b v17 https://github.com/taqat-techno/odoo-container.git my-odoo17
+cd my-odoo17
+gh repo clone my-org/my-project projects/my-project
+/init-docker-container
+```
 
 ---
 
@@ -23,34 +32,45 @@ Run `docker info` via Bash to verify Docker Desktop is running. If it fails, tel
 "Docker Desktop is not running. Please start it first."
 and stop.
 
-### Step 2: Select Odoo Version
+### Step 2: Detect Odoo Version
 
-Scan `c:\odoo\docker\` for directories matching `odoo-*` pattern. Extract version numbers.
+Auto-detect the Odoo version from the current git branch name.
 
-Use `AskUserQuestion` to let the user pick a version. Present options like:
-- Odoo 14
-- Odoo 15
-- Odoo 16
-- Odoo 17
-- Odoo 18
-- Odoo 19
+Run `git branch --show-current` in the current working directory.
 
-Store the selected version number (e.g., `17`).
-Set the version directory: `c:\odoo\docker\odoo-{version}\`
+Parse the version number from the branch name:
+- `v14` -> version `14`
+- `v15` -> version `15`
+- `v16` -> version `16`
+- `v17` -> version `17`
+- `v18` -> version `18`
+- `v19` -> version `19`
+
+If the branch name does not match any known version pattern, ask the user using `AskUserQuestion`:
+"Could not detect Odoo version from branch '{branch_name}'. Which version is this?"
+Present options: Odoo 14, Odoo 15, Odoo 16, Odoo 17, Odoo 18, Odoo 19.
+
+Store the detected version number (e.g., `17`).
+Set the **base directory** to the current working directory (repo root).
+
+Display: `Detected Odoo {version} from branch '{branch_name}'`
 
 ### Step 3: Select Project
 
-List all subdirectories inside `odoo-{version}\projects\` using Glob or Bash `ls`.
+List all subdirectories inside `projects/` (relative to repo root) using Glob or Bash `ls`.
 Only include actual directories, not files.
 
 If no project directories exist, inform the user:
 ```
-No projects found in odoo-{version}\projects\.
-Please clone your project there first. Expected structure:
+No projects found in projects/.
+Clone your project there first:
 
-  odoo-{version}\projects\{project_name}\
-    module_a\__manifest__.py
-    module_b\__manifest__.py
+  gh repo clone my-org/my-project projects/my-project
+
+Expected structure:
+  projects/{project_name}/
+    module_a/__manifest__.py
+    module_b/__manifest__.py
     ...
 ```
 and stop.
@@ -66,7 +86,7 @@ For each manifest file found:
 2. The **addons path** = parent of the module directory
 
 Collect all unique addons paths and convert them to container paths:
-- Host path `projects\{project}\{subdir}\{module}\__manifest__.py`
+- Host path `projects/{project}/{subdir}/{module}/__manifest__.py`
 - Container addons path: `/opt/odoo/custom-addons/{project}/{subdir}`
 
 Most common case: modules at project root -> single addons path `/opt/odoo/custom-addons/{project_name}`
@@ -86,32 +106,32 @@ If no modules are found, warn the user but continue (modules may be added later)
 
 ### Step 5: Check for Existing Config
 
-Check if `conf/{project_name}.conf` or `docker-compose.{project_name}.yml` already exist in `odoo-{version}\`.
+Check if `conf/{project_name}.conf` or `docker-compose.{project_name}.yml` already exist in the repo root.
 
 If either exists, ask the user if they want to overwrite using `AskUserQuestion`.
 If no, stop.
 
 ### Step 6: Generate Odoo Config File
 
-Create `c:\odoo\docker\odoo-{version}\conf\{project_name}.conf` using the **Odoo Config Template** below.
+Create `conf/{project_name}.conf` (relative to repo root) using the **Odoo Config Template** below.
 
 Use the **Version Settings Table** to determine the correct gevent/longpolling config key.
 
 ### Step 7: Generate Docker Compose File
 
-Create `c:\odoo\docker\odoo-{version}\docker-compose.{project_name}.yml` using the **Docker Compose Template** below.
+Create `docker-compose.{project_name}.yml` (relative to repo root) using the **Docker Compose Template** below.
 
 Use the **Version Settings Table** for the correct PostgreSQL image.
 
 ### Step 8: Generate IDE Configurations
 
-**PyCharm**: Create `c:\odoo\docker\odoo-{version}\.idea\runConfigurations\{project_name}_docker.xml` using the **PyCharm Run Config Template** below. Create the `.idea\runConfigurations\` directory if it does not exist.
+**PyCharm**: Create `.idea/runConfigurations/{project_name}_docker.xml` using the **PyCharm Run Config Template** below. Create the `.idea/runConfigurations/` directory if it does not exist.
 
-**VSCode**: Create or update `c:\odoo\docker\odoo-{version}\.vscode\tasks.json` using the **VSCode Tasks Template** below.
-- If `.vscode\tasks.json` does NOT exist, create it with the project tasks.
-- If `.vscode\tasks.json` ALREADY exists, read it, parse the JSON, and append the new project tasks to the existing `tasks` array (avoid duplicates by checking task labels). Write back the merged result.
+**VSCode**: Create or update `.vscode/tasks.json` using the **VSCode Tasks Template** below.
+- If `.vscode/tasks.json` does NOT exist, create it with the project tasks.
+- If `.vscode/tasks.json` ALREADY exists, read it, parse the JSON, and append the new project tasks to the existing `tasks` array (avoid duplicates by checking task labels). Write back the merged result.
 
-Create the `.vscode\` directory if it does not exist.
+Create the `.vscode/` directory if it does not exist.
 
 ### Step 9: Build and Start
 
@@ -120,8 +140,7 @@ Ask the user using `AskUserQuestion`: "Build and start the Docker containers now
 If yes:
 1. First stop any existing containers on the same ports:
 ```bash
-cd c:\odoo\docker\odoo-{version}
-docker-compose -f docker-compose.{project_name}.yml down 2>nul
+docker-compose -f docker-compose.{project_name}.yml down 2>/dev/null
 ```
 2. Then build and start:
 ```bash
@@ -137,6 +156,7 @@ If no, just display the files created and the manual commands.
 ```
 Docker environment ready!
 
+Odoo Version: {version}
 Odoo Web:     http://localhost:8069
 Master Pwd:   123
 Database:     {project_name}
@@ -279,7 +299,7 @@ volumes:
 Where:
 - `{postgres_image}` = from Version Settings Table
 - `{project_name}` = selected project name
-- `{version}` = selected version number (14, 15, 16, 17, 18, 19)
+- `{version}` = detected version number (14, 15, 16, 17, 18, 19)
 
 ---
 
@@ -367,7 +387,8 @@ Where:
 ## Error Handling
 
 - **Docker not running**: Check `docker info` first. If fails, abort with clear message.
-- **No projects found**: Tell user to clone project first. Show expected folder structure.
+- **Branch not recognized**: Fall back to asking user which Odoo version.
+- **No projects found**: Tell user to clone project first. Show expected folder structure with `gh repo clone` example.
 - **No modules found**: Warn but proceed. Project may have modules added later.
 - **Config/compose already exists**: Ask user before overwriting.
 - **Build fails**: Show docker build logs and suggest checking Dockerfile.
