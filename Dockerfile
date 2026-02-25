@@ -62,17 +62,19 @@ RUN pip install --no-cache-dir "setuptools<81" "Cython<3" wheel \
     && PIP_CONSTRAINT=/tmp/pip-constraint.txt pip install --no-cache-dir -r /opt/odoo/requirements.txt \
     && rm /tmp/pip-constraint.txt
 
+# Copy entrypoint script
+COPY entrypoint.sh /opt/odoo/entrypoint.sh
+RUN chmod +x /opt/odoo/entrypoint.sh
+
 # Expose Odoo ports
 EXPOSE 8069 8072
 
 # Set default user
 USER odoo
 
-# Add source to Python path so 'import odoo' works
-ENV PYTHONPATH=/opt/odoo/source
-
 # Set working directory
 WORKDIR /opt/odoo/source
 
-# Default command
-CMD ["python", "/opt/odoo/source/setup/odoo", "-c", "/etc/odoo/odoo.conf"]
+# Entrypoint handles dev mode, debugger, and PYTHONPATH
+ENTRYPOINT ["/opt/odoo/entrypoint.sh"]
+CMD ["-c", "/etc/odoo/odoo.conf"]
