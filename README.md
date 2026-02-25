@@ -26,10 +26,11 @@ A **complete, containerized Odoo 18 Enterprise development environment**. Everyt
 Each version branch contains:
 
 - **Full Odoo Enterprise source** &mdash; ready to reference, debug, and extend
-- **PostgreSQL database** &mdash; isolated per project, auto-configured
+- **PostgreSQL database** &mdash; isolated per project, auto-configured with health checks
 - **Docker Compose orchestration** &mdash; one command to start everything
 - **IDE configurations** &mdash; VSCode and PyCharm pre-configured with Odoo source paths
-- **AI-assisted setup** &mdash; Claude Code `/init-docker-container` command for instant project scaffolding
+- **Dev mode & debugger** &mdash; toggle via environment variables
+- **AI-assisted setup** &mdash; Claude Code `/init-docker-container` command
 
 ---
 
@@ -64,29 +65,17 @@ That is it. Odoo 18 is running.
 ## Architecture
 
 ```
-                         +-------------------------------------------+
-                         |           Docker Compose                  |
-                         |                                           |
-  localhost:8069  ------>|   +-----------------------------------+   |
-  (HTTP)                 |   |          odoo18_web             |   |
-                         |   |                                   |   |
-  localhost:8072  ------>|   |   Odoo 18 Enterprise              |   |
-  (Gevent/WebSocket)     |   |   Python 3.11 | Debian Bookworm   |   |
-                         |   |                                   |   |
-                         |   |   /opt/odoo/source      (ro)      |---- Odoo source
-                         |   |   /opt/odoo/custom-addons         |---- Your modules
-                         |   |   /etc/odoo/odoo.conf   (ro)      |---- Config
-                         |   |   /var/log/odoo                   |---- Logs
-                         |   +----------------+------------------+   |
-                         |                    |                      |
-                         |                    v                      |
-                         |   +-----------------------------------+   |
-  localhost:5433  ------>|   |          odoo18_db              |   |
-  (PostgreSQL)           |   |                                   |   |
-                         |   |   PostgreSQL 15                   |   |
-                         |   |   Data persisted in Docker volume |   |
-                         |   +-----------------------------------+   |
-                         +-------------------------------------------+
+Docker Compose (odoo18_net)
+  +-- odoo18_db  (PostgreSQL 15)
+  |   +-- Port: 5433 -> 5432
+  |   +-- Health: pg_isready
+  |
+  +-- odoo18_web (Odoo 18 Enterprise)
+      +-- Port: 8069 -> 8069 (HTTP)
+      +-- Port: 8072 -> 8072 (Gevent/WebSocket)
+      +-- Port: 5678 -> 5678 (Debugger, when enabled)
+      +-- Health: /web/health
+      +-- Python 3.11 | Debian Bookworm
 ```
 
 ### Ports
@@ -96,6 +85,68 @@ That is it. Odoo 18 is running.
 | Odoo HTTP | `8069` | `8069` | Web interface & API |
 | Odoo Gevent | `8072` | `8072` | WebSocket / Longpolling |
 | PostgreSQL | `5433` | `5432` | Database access |
+| Debugger | `5678` | `5678` | debugpy (when enabled) |
+
+---
+
+## Environment Variables
+
+Configure via `.env` file (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_USER` | `odoo` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | `odoo` | PostgreSQL password |
+| `POSTGRES_DB` | `postgres` | PostgreSQL database |
+| `DEV_MODE` | `0` | Set to `1` for `--dev=all` (auto-reload, debug assets) |
+| `ENABLE_DEBUGGER` | `0` | Set to `1` for debugpy on port 5678 |
+
+---
+
+## Dev Mode
+
+Enable auto-reload and debug assets for active development:
+
+1. Copy `.env.example` to `.env`
+2. Set `DEV_MODE=1`
+3. Restart: `docker-compose up -d`
+
+Odoo will auto-reload on Python file changes and serve unminified assets. This is equivalent to running Odoo with `--dev=all`.
+
+---
+
+## Debugging (VSCode / PyCharm)
+
+Attach your IDE debugger to the running Odoo container:
+
+1. Set `ENABLE_DEBUGGER=1` in `.env`
+2. Restart: `docker-compose up -d`
+3. Odoo will wait for debugger to attach on port `5678`
+
+### VSCode
+
+Add to `.vscode/launch.json`:
+
+```json
+{
+  "name": "Attach to Odoo Docker",
+  "type": "debugpy",
+  "request": "attach",
+  "connect": { "host": "localhost", "port": 5678 },
+  "pathMappings": [
+    { "localRoot": "${workspaceFolder}", "remoteRoot": "/opt/odoo/source" },
+    { "localRoot": "${workspaceFolder}/projects", "remoteRoot": "/opt/odoo/custom-addons" }
+  ]
+}
+```
+
+### PyCharm
+
+Create a **Python Remote Debug** configuration pointing to `localhost:5678`.
 
 ---
 
@@ -113,10 +164,9 @@ This will:
 1. Auto-detect the Odoo version from the git branch
 2. Let you pick your project from `projects/`
 3. Scan for Odoo modules and map addons paths
-4. Generate `conf/{project}.conf` with correct settings
-5. Generate `docker-compose.{project}.yml` with isolated containers
-6. Create PyCharm run configuration + VSCode tasks
-7. Optionally build and start the containers
+4. Generate project-specific config and docker-compose files
+5. Create PyCharm run configuration + VSCode tasks
+6. Optionally build and start the containers
 
 ### Option B: Manual Setup
 
@@ -146,7 +196,7 @@ Open this directory in VSCode &mdash; it is pre-configured:
 - **Pylance** source paths point to `odoo/` for autocomplete and go-to-definition
 - **Docker extension** &mdash; right-click `docker-compose.yml` > Compose Up
 - **Tasks** &mdash; `Terminal > Run Task` for Start, Stop, Logs, Shell, Rebuild
-- **Python debugging** &mdash; set breakpoints, attach to running container
+- **Debugging** &mdash; attach to container via debugpy (see Debugging section)
 
 ### PyCharm
 
@@ -187,14 +237,14 @@ AI-powered development directly in your terminal:
 .
 |-- Dockerfile                    # Container image definition
 |-- docker-compose.yml            # Default orchestration
-|-- docker-compose.{project}.yml  # Per-project (generated)
-|-- entrypoint.sh                 # Container startup script
+|-- entrypoint.sh                 # Container startup (dev mode, debugger)
 |-- quick-start.bat               # Windows one-click launcher
 |-- requirements.txt              # Python dependencies
+|-- .env.example                  # Environment variable template
 |
 |-- conf/                         # Odoo configuration files
 |   |-- odoo.conf                 # Default config
-|   +-- {project}.conf            # Per-project (generated)
+|   +-- {project}.conf          # Per-project (generated)
 |
 |-- odoo/                         # Odoo 18 Enterprise source (READ-ONLY)
 |   |-- addons/                   # 1200+ standard & enterprise modules
@@ -239,10 +289,8 @@ docker-compose exec odoo python /opt/odoo/source/setup/odoo \
 # Access PostgreSQL directly
 docker-compose exec db psql -U odoo
 
-# Per-project commands (when using /init-docker-container)
-docker-compose -f docker-compose.my_project.yml up -d
-docker-compose -f docker-compose.my_project.yml logs -f odoo
-docker-compose -f docker-compose.my_project.yml down
+# Check container health
+docker inspect --format="{{.State.Health.Status}}" odoo18_web
 ```
 
 ---
@@ -263,31 +311,6 @@ Every Odoo version (14 through 19) is available as a separate branch. Each branc
 Clone URL: `https://github.com/taqat-techno/odoo-container.git`
 
 Or download from the [Releases](https://github.com/taqat-techno/odoo-container/releases) page.
-
----
-
-## Workflow Example
-
-```bash
-# 1. Clone the environment for your Odoo version
-git clone -b v18 https://github.com/taqat-techno/odoo-container.git client-project
-cd client-project
-
-# 2. Add your custom modules
-gh repo clone my-org/client-modules projects/client-modules
-
-# 3. Set up with Claude Code (or manually edit conf/odoo.conf)
-/init-docker-container
-
-# 4. Develop - edit modules in projects/, restart to see changes
-code .     # Open in VSCode
-pycharm .  # Or open in PyCharm
-
-# 5. Test your module
-docker-compose -f docker-compose.client-modules.yml exec odoo \
-  python /opt/odoo/source/setup/odoo -c /etc/odoo/odoo.conf \
-  -d client_db --test-enable -i my_module --stop-after-init
-```
 
 ---
 
