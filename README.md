@@ -1,326 +1,139 @@
-<p align="center">
-  <img src="https://www.taqatechno.com/logo.png" alt="TaqaTechno" width="200"/>
-</p>
+# Odoo 16 Enterprise — Docker Container
 
-<h1 align="center">Odoo 16 &mdash; Docker Development Environment</h1>
+Branch `v16` of `taqat-techno/odoo-container`.
 
-<p align="center">
-  <strong>Clone. Build. Develop.</strong><br/>
-  Production-grade Odoo Enterprise inside Docker &mdash; ready in under 2 minutes.
-</p>
-
-<p align="center">
-  <a href="https://github.com/taqat-techno/odoo-container/releases/tag/v16.0.0"><img src="https://img.shields.io/badge/release-v16.0.0-blue" alt="Release"/></a>
-  <a href="#all-versions"><img src="https://img.shields.io/badge/versions-14%20%7C%2015%20%7C%2016%20%7C%2017%20%7C%2018%20%7C%2019-green" alt="Versions"/></a>
-  <a href="#ide-integration"><img src="https://img.shields.io/badge/IDE-VSCode%20%7C%20PyCharm-purple" alt="IDE Support"/></a>
-  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Odoo%20Enterprise-red" alt="License"/></a>
-</p>
+This repository contains the **Odoo 16 Enterprise source code** pre-configured for Docker-based development. It is designed to work with a shared Docker image hosted on Docker Hub — no local image build required.
 
 ---
 
-## What Is This?
+## What This Repo Contains
 
-A **complete, containerized Odoo 16 Enterprise development environment**. Everything you need to develop, test, and run Odoo modules locally without installing Python, PostgreSQL, or any system dependencies on your machine.
+```
+odoo-container/ (v16 branch)
+├── odoo/                    ← Odoo 16 Enterprise source (standard addons)
+├── conf/
+│   └── odoo.conf            ← Default Odoo configuration (Docker-ready)
+├── project-addons/          ← Clone your custom project modules here
+├── .claude/
+│   └── commands/
+│       └── init-docker-container.md  ← Claude Code command (auto-setup)
+├── .vscode/                 ← VSCode workspace settings
+├── requirements.txt         ← Python dependencies for this version
+├── docker-compose.yml       ← Default compose (no project, generic)
+└── .env.example             ← Environment variable template
+```
 
-Each version branch contains:
-
-- **Full Odoo Enterprise source** &mdash; ready to reference, debug, and extend
-- **PostgreSQL database** &mdash; isolated per project, auto-configured with health checks
-- **Docker Compose orchestration** &mdash; one command to start everything
-- **IDE configurations** &mdash; VSCode and PyCharm pre-configured with Odoo source paths
-- **Dev mode & debugger** &mdash; toggle via environment variables
-- **AI-assisted setup** &mdash; Claude Code `/init-docker-container` command
+**What is NOT here:** Dockerfile, entrypoint.sh — those live in the `alakosha/odoo-image` Docker Hub repo.
 
 ---
 
 ## Quick Start
 
-### 1. Clone
+### 1. Clone this repo
 
 ```bash
-git clone -b v16 https://github.com/taqat-techno/odoo-container.git odoo16
-cd odoo16
+git clone -b v16 https://github.com/taqat-techno/odoo-container.git my-project-odoo16
+cd my-project-odoo16
 ```
 
-### 2. Build & Run
+### 2. Clone your custom project modules
 
 ```bash
-docker-compose up -d --build
+gh repo clone taqat-techno/my-project project-addons/my-project
 ```
 
-### 3. Open
-
-Visit **http://localhost:8069** in your browser.
-
-| | |
-|---|---|
-| **Master Password** | `123` |
-| **Database** | Created on first access |
-
-That is it. Odoo 16 is running.
-
----
-
-## Architecture
-
-```
-Docker Compose (odoo16_net)
-  +-- odoo16_db  (PostgreSQL 12)
-  |   +-- Port: 5433 -> 5432
-  |   +-- Health: pg_isready
-  |
-  +-- odoo16_web (Odoo 16 Enterprise)
-      +-- Port: 8069 -> 8069 (HTTP)
-      +-- Port: 8072 -> 8072 (Gevent/WebSocket)
-      +-- Port: 5678 -> 5678 (Debugger, when enabled)
-      +-- Health: /web/health
-      +-- Python 3.10 | Debian Bullseye
-```
-
-### Ports
-
-| Service | Host Port | Container Port | Purpose |
-|---------|-----------|----------------|---------|
-| Odoo HTTP | `8069` | `8069` | Web interface & API |
-| Odoo Gevent | `8072` | `8072` | WebSocket / Longpolling |
-| PostgreSQL | `5433` | `5432` | Database access |
-| Debugger | `5678` | `5678` | debugpy (when enabled) |
-
----
-
-## Environment Variables
-
-Configure via `.env` file (copy from `.env.example`):
+### 3. Copy environment file
 
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_USER` | `odoo` | PostgreSQL username |
-| `POSTGRES_PASSWORD` | `odoo` | PostgreSQL password |
-| `POSTGRES_DB` | `postgres` | PostgreSQL database |
-| `DEV_MODE` | `0` | Set to `1` for `--dev=all` (auto-reload, debug assets) |
-| `ENABLE_DEBUGGER` | `0` | Set to `1` for debugpy on port 5678 |
-
----
-
-## Dev Mode
-
-Enable auto-reload and debug assets for active development:
-
-1. Copy `.env.example` to `.env`
-2. Set `DEV_MODE=1`
-3. Restart: `docker-compose up -d`
-
-Odoo will auto-reload on Python file changes and serve unminified assets. This is equivalent to running Odoo with `--dev=all`.
-
----
-
-## Debugging (VSCode / PyCharm)
-
-Attach your IDE debugger to the running Odoo container:
-
-1. Set `ENABLE_DEBUGGER=1` in `.env`
-2. Restart: `docker-compose up -d`
-3. Odoo will wait for debugger to attach on port `5678`
-
-### VSCode
-
-Add to `.vscode/launch.json`:
-
-```json
-{
-  "name": "Attach to Odoo Docker",
-  "type": "debugpy",
-  "request": "attach",
-  "connect": { "host": "localhost", "port": 5678 },
-  "pathMappings": [
-    { "localRoot": "${workspaceFolder}", "remoteRoot": "/opt/odoo/source" },
-    { "localRoot": "${workspaceFolder}/projects", "remoteRoot": "/opt/odoo/custom-addons" }
-  ]
-}
-```
-
-### PyCharm
-
-Create a **Python Remote Debug** configuration pointing to `localhost:5678`.
-
----
-
-## Project Setup
-
-### Option A: Claude Code (Recommended)
-
-If you use [Claude Code](https://claude.ai/code), the built-in command handles everything:
+### 4. Run the setup command (Claude Code)
 
 ```
 /init-docker-container
 ```
 
-This will:
-1. Auto-detect the Odoo version from the git branch
-2. Let you pick your project from `projects/`
-3. Scan for Odoo modules and map addons paths
-4. Generate project-specific config and docker-compose files
-5. Create PyCharm run configuration + VSCode tasks
-6. Optionally build and start the containers
+This command automatically:
+- Detects Odoo 16 from `odoo/release.py`
+- Scans `project-addons/` for your modules
+- Generates `conf/{project}.conf` and `docker-compose.{project}.yml`
+- Pulls `alakosha/odoo-image:16.0` from Docker Hub
+- Starts the containers
 
-### Option B: Manual Setup
+**Access:** http://localhost:8069 · Master password: `123`
+
+---
+
+## Manual Setup (without Claude Code)
 
 ```bash
-# 1. Clone your modules into projects/
-gh repo clone your-org/your-modules projects/my_project
+# Pull the Docker image
+docker pull alakosha/odoo-image:16.0
 
-# 2. Edit conf/odoo.conf - add your custom addons path
-#    addons_path = /opt/odoo/source/odoo/addons,/opt/odoo/custom-addons/my_project
-
-# 3. Start
-docker-compose up -d --build
-
-# 4. Install your module
-docker-compose exec odoo python /opt/odoo/source/setup/odoo \
-  -d my_db -i my_module --stop-after-init
-```
-
----
-
-## IDE Integration
-
-### VSCode
-
-Open this directory in VSCode &mdash; it is pre-configured:
-
-- **Pylance** source paths point to `odoo/` for autocomplete and go-to-definition
-- **Docker extension** &mdash; right-click `docker-compose.yml` > Compose Up
-- **Tasks** &mdash; `Terminal > Run Task` for Start, Stop, Logs, Shell, Rebuild
-- **Debugging** &mdash; attach to container via debugpy (see Debugging section)
-
-### PyCharm
-
-Open this directory as a PyCharm project:
-
-- **Run configurations** &mdash; pre-built Docker Compose configs per project
-- **Python SDK** &mdash; point to Python 3.10 interpreter in the container
-- **Source roots** &mdash; `odoo/` and `projects/` marked for code intelligence
-- **Database tools** &mdash; connect to `localhost:5433` with `odoo`/`odoo` credentials
-
-### Claude Code
-
-AI-powered development directly in your terminal:
-
-- **`.claude/` settings** &mdash; pre-configured with safe permissions (core Odoo is read-only)
-- **`/init-docker-container`** &mdash; interactive project setup command
-- **Odoo-aware** &mdash; understands module structure, inheritance, views, and security
-
----
-
-## Tech Stack
-
-| Component | Version | Purpose |
-|-----------|---------|---------|
-| **Odoo** | 16.0 Enterprise | ERP framework |
-| **Python** | 3.10 | Runtime |
-| **PostgreSQL** | 12 | Database |
-| **Debian** | Bullseye (slim) | Base OS |
-| **Node.js** | 20 | Asset pipeline (rtlcss) |
-| **wkhtmltopdf** | 0.12.6 | PDF report generation |
-| **Docker Compose** | v2 | Container orchestration |
-
----
-
-## Directory Structure
-
-```
-.
-|-- Dockerfile                    # Container image definition
-|-- docker-compose.yml            # Default orchestration
-|-- entrypoint.sh                 # Container startup (dev mode, debugger)
-|-- quick-start.bat               # Windows one-click launcher
-|-- requirements.txt              # Python dependencies
-|-- .env.example                  # Environment variable template
-|
-|-- conf/                         # Odoo configuration files
-|   |-- odoo.conf                 # Default config
-|   +-- {project}.conf          # Per-project (generated)
-|
-|-- odoo/                         # Odoo 16 Enterprise source (READ-ONLY)
-|   |-- addons/                   # 1200+ standard & enterprise modules
-|   |-- odoo/                     # Core framework (ORM, API, HTTP)
-|   +-- setup/                    # Entry point
-|
-|-- projects/                     # Your custom modules (clone here)
-|   +-- {project}/
-|       |-- module_a/
-|       +-- module_b/
-|
-|-- logs/                         # Runtime log files
-|-- .vscode/                      # VSCode workspace settings
-|-- .idea/                        # PyCharm project settings
-+-- .claude/                      # Claude Code settings & commands
-```
-
----
-
-## Common Commands
-
-```bash
-# Start containers
+# Start with default config (no project)
 docker-compose up -d
 
-# Stop containers
-docker-compose down
+# Or with a generated project config
+docker-compose -f docker-compose.{project}.yml up -d
+```
 
-# View Odoo logs (live)
-docker-compose logs -f odoo
+---
+
+## Developer Commands
+
+```bash
+# Start
+docker-compose -f docker-compose.{project}.yml up -d
+
+# Stop
+docker-compose -f docker-compose.{project}.yml down
+
+# View logs
+docker-compose -f docker-compose.{project}.yml logs -f odoo
 
 # Open shell inside container
-docker-compose exec odoo bash
+docker-compose -f docker-compose.{project}.yml exec odoo bash
 
-# Rebuild after Dockerfile changes
-docker-compose up -d --build
+# Update to latest image
+docker pull alakosha/odoo-image:16.0
+docker-compose -f docker-compose.{project}.yml up -d
 
-# Install or update a module
-docker-compose exec odoo python /opt/odoo/source/setup/odoo \
-  -c /etc/odoo/odoo.conf -d mydb -u my_module --stop-after-init
-
-# Access PostgreSQL directly
-docker-compose exec db psql -U odoo
-
-# Check container health
-docker inspect --format="{{.State.Health.Status}}" odoo16_web
+# Enable dev mode (auto-reload): set DEV_MODE=1 in .env, then restart
 ```
+
+---
+
+## Ports
+
+| Port | Service |
+|------|---------|
+| 8069 | Odoo HTTP |
+| 8072 | Gevent / WebSocket |
+| 5433 | PostgreSQL (host) → 5432 (container) |
+| 5678 | Remote debugger (disabled by default) |
 
 ---
 
 ## All Versions
 
-Every Odoo version (14 through 19) is available as a separate branch. Each branch is a **complete, independent environment** with version-appropriate dependencies.
-
-| Version | Branch | Python | PostgreSQL | Debian | Clone |
-|---------|--------|--------|------------|--------|-------|
-| **Odoo 19** | [`v19`](https://github.com/taqat-techno/odoo-container/tree/v19) (default) | 3.12 | 15 | Bookworm | `git clone -b v19 ...` |
-| Odoo 18 | [`v18`](https://github.com/taqat-techno/odoo-container/tree/v18) | 3.11 | 15 | Bookworm | `git clone -b v18 ...` |
-| Odoo 17 | [`v17`](https://github.com/taqat-techno/odoo-container/tree/v17) | 3.10 | 12 | Bookworm | `git clone -b v17 ...` |
-| Odoo 16 | [`v16`](https://github.com/taqat-techno/odoo-container/tree/v16) | 3.10 | 12 | Bullseye | `git clone -b v16 ...` |
-| Odoo 15 | [`v15`](https://github.com/taqat-techno/odoo-container/tree/v15) | 3.9 | 12 | Bullseye | `git clone -b v15 ...` |
-| Odoo 14 | [`v14`](https://github.com/taqat-techno/odoo-container/tree/v14) | 3.8 | 12 | Buster | `git clone -b v14 ...` |
-
-Clone URL: `https://github.com/taqat-techno/odoo-container.git`
-
-Or download from the [Releases](https://github.com/taqat-techno/odoo-container/releases) page.
+| Branch | Odoo | Image Tag | Python | PostgreSQL |
+|--------|------|-----------|--------|------------|
+| v14 | 14.0 | alakosha/odoo-image:14.0 | 3.8 | 12 |
+| v15 | 15.0 | alakosha/odoo-image:15.0 | 3.9 | 12 |
+| v16 | 16.0 | alakosha/odoo-image:16.0 | 3.10 | 12 |
+| v17 | 17.0 | alakosha/odoo-image:17.0 | 3.10 | 12 |
+| v18 | 18.0 | alakosha/odoo-image:18.0 | 3.11 | 15 |
+| v19 | 19.0 | alakosha/odoo-image:19.0 | 3.12 | 15 |
 
 ---
 
-## License
+## Environment Variables
 
-Odoo Enterprise Edition is subject to the [Odoo Enterprise License v1.0](https://www.odoo.com/documentation/16.0/legal/licenses.html#odoo-enterprise-license).
-
----
-
-<p align="center">
-  Maintained by <a href="https://www.taqatechno.com/">TaqaTechno</a><br/>
-  <sub>Empowering businesses with smart ERP solutions</sub>
-</p>
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_USER` | `odoo` | Database user |
+| `POSTGRES_PASSWORD` | `odoo` | Database password |
+| `POSTGRES_DB` | `postgres` | Default database |
+| `DEV_MODE` | `0` | Set to `1` for `--dev=all` |
+| `ENABLE_DEBUGGER` | `0` | Set to `1` for debugpy on port 5678 |
