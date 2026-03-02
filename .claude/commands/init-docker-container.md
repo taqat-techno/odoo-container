@@ -197,12 +197,12 @@ Stop the current one before starting another.
 
 | Version | Postgres Image | Gevent Config Key  |
 |---------|----------------|--------------------|
-| 14      | postgres:12    | longpolling_port   |
-| 15      | postgres:12    | longpolling_port   |
-| 16      | postgres:12    | longpolling_port   |
-| 17      | postgres:12    | gevent_port        |
-| 18      | postgres:15    | gevent_port        |
-| 19      | postgres:15    | gevent_port        |
+| 14      | postgres:13    | longpolling_port   |
+| 15      | postgres:13    | longpolling_port   |
+| 16      | postgres:14    | longpolling_port   |
+| 17      | postgres:15    | gevent_port        |
+| 18      | postgres:16    | gevent_port        |
+| 19      | postgres:16    | gevent_port        |
 
 All versions use the same standard ports:
 - HTTP: 8069
@@ -224,6 +224,7 @@ db_password = odoo
 db_name = {project_name}
 admin_passwd = 123
 addons_path = /opt/odoo/source/odoo/addons,{comma_separated_custom_addons_paths}
+data_dir = /var/lib/odoo
 http_port = 8069
 http_interface = 0.0.0.0
 {gevent_config_key} = 8072
@@ -262,7 +263,7 @@ services:
     volumes:
       - {project_name}_{version}_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo} -d ${POSTGRES_DB:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -279,7 +280,7 @@ services:
       - ./project-addons:/opt/odoo/custom-addons
       - ./conf/{project_name}.conf:/etc/odoo/odoo.conf:ro
       - ./logs:/var/log/odoo
-      - {project_name}_{version}_filestore:/var/lib/odoo/filestore
+      - {project_name}_{version}_data:/var/lib/odoo
     ports:
       - "8069:8069"
       - "8072:8072"
@@ -291,11 +292,20 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       DEV_MODE: ${DEV_MODE:-0}
       ENABLE_DEBUGGER: ${ENABLE_DEBUGGER:-0}
+      # WAIT_FOR_DB: ${WAIT_FOR_DB:-0}
+      # LOG_LEVEL: ${LOG_LEVEL:-}
+      # ODOO_EXTRA_ARGS: ${ODOO_EXTRA_ARGS:-}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8069/web/health || curl -sf http://localhost:8069/web/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     restart: unless-stopped
 
 volumes:
   {project_name}_{version}_db_data:
-  {project_name}_{version}_filestore:
+  {project_name}_{version}_data:
 ```
 
 Where:
