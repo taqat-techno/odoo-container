@@ -1,6 +1,6 @@
 # Init Docker Container - Interactive Docker Setup for Odoo Projects
 
-Set up a project-specific Docker environment with standard ports (8069/8072/5433). The Odoo version is auto-detected by reading `odoo/release.py` from the repo root. Only one container can run at a time.
+Set up a project-specific Docker environment with standard ports (8069/8072/5433). The Odoo version is auto-detected from the current git branch. Only one container can run at a time.
 
 ## Usage
 - `/init-docker-container` - Interactive mode, auto-detects version, prompts for project
@@ -9,14 +9,14 @@ Arguments (if provided): $ARGUMENTS
 
 ## Prerequisites
 - Docker Desktop must be running
-- This repo must be cloned from `taqat-techno/odoo-container`
-- The project folder must already be cloned into the `project-addons/` directory
+- This repo must be cloned from `taqat-techno/odoo-container` (any version branch)
+- The project folder must already be cloned into the `projects/` directory
 
 ```bash
-# Example: Clone Odoo container repo, then add your project
-git clone https://github.com/taqat-techno/odoo-container.git my-odoo
-cd my-odoo
-gh repo clone taqat-techno/my-project project-addons/my-project
+# Example: Clone Odoo 17 environment, then add your project
+git clone -b v17 https://github.com/taqat-techno/odoo-container.git my-odoo17
+cd my-odoo17
+gh repo clone my-org/my-project projects/my-project
 /init-docker-container
 ```
 
@@ -34,37 +34,41 @@ and stop.
 
 ### Step 2: Detect Odoo Version
 
-Auto-detect the Odoo version by reading `odoo/release.py` from the repo root using the `Read` tool.
+Auto-detect the Odoo version from the current git branch name.
 
-Look for a line containing `version_info = (` and extract the first integer in the tuple.
-Example: `version_info = (14, 0, 0, 'final', 0, '')` → version `14`
+Run `git branch --show-current` in the current working directory.
 
-Fallback: if `version_info` line is not found, look for a line containing `version = '` and extract the major version number.
-Example: `version = '14.0'` → version `14`
+Parse the version number from the branch name:
+- `v14` -> version `14`
+- `v15` -> version `15`
+- `v16` -> version `16`
+- `v17` -> version `17`
+- `v18` -> version `18`
+- `v19` -> version `19`
 
-If `odoo/release.py` does not exist, ask the user using `AskUserQuestion`:
-"Could not find odoo/release.py. Which Odoo version is this?"
+If the branch name does not match any known version pattern, ask the user using `AskUserQuestion`:
+"Could not detect Odoo version from branch '{branch_name}'. Which version is this?"
 Present options: Odoo 14, Odoo 15, Odoo 16, Odoo 17, Odoo 18, Odoo 19.
 
-Store the detected version number (e.g., `14`).
+Store the detected version number (e.g., `17`).
 Set the **base directory** to the current working directory (repo root).
 
-Display: `Detected Odoo {version} from odoo/release.py`
+Display: `Detected Odoo {version} from branch '{branch_name}'`
 
 ### Step 3: Select Project
 
-List all subdirectories inside `project-addons/` (relative to repo root) using Glob or Bash `ls`.
+List all subdirectories inside `projects/` (relative to repo root) using Glob or Bash `ls`.
 Only include actual directories, not files.
 
 If no project directories exist, inform the user:
 ```
-No projects found in project-addons/.
+No projects found in projects/.
 Clone your project there first:
 
-  gh repo clone taqat-techno/my-project project-addons/my-project
+  gh repo clone my-org/my-project projects/my-project
 
 Expected structure:
-  project-addons/{project_name}/
+  projects/{project_name}/
     module_a/__manifest__.py
     module_b/__manifest__.py
     ...
@@ -82,7 +86,7 @@ For each manifest file found:
 2. The **addons path** = parent of the module directory
 
 Collect all unique addons paths and convert them to container paths:
-- Host path `project-addons/{project}/{subdir}/{module}/__manifest__.py`
+- Host path `projects/{project}/{subdir}/{module}/__manifest__.py`
 - Container addons path: `/opt/odoo/custom-addons/{project}/{subdir}`
 
 Most common case: modules at project root -> single addons path `/opt/odoo/custom-addons/{project_name}`
@@ -129,22 +133,18 @@ Use the **Version Settings Table** for the correct PostgreSQL image.
 
 Create the `.vscode/` directory if it does not exist.
 
-### Step 9: Pull Image and Start
+### Step 9: Build and Start
 
-Ask the user using `AskUserQuestion`: "Pull the Docker image and start the containers now?"
+Ask the user using `AskUserQuestion`: "Build and start the Docker containers now?"
 
 If yes:
 1. First stop any existing containers on the same ports:
 ```bash
 docker-compose -f docker-compose.{project_name}.yml down 2>/dev/null
 ```
-2. Pull the pre-built image from Docker Hub:
+2. Then build and start:
 ```bash
-docker pull alakosha/odoo-image:{version}.0
-```
-3. Start the containers:
-```bash
-docker-compose -f docker-compose.{project_name}.yml up -d
+docker-compose -f docker-compose.{project_name}.yml up -d --build
 ```
 
 Wait for containers to be healthy, then display the summary.
@@ -178,14 +178,15 @@ Files created:
 
 IDE integration:
   PyCharm: Run configuration "{project_name} Docker" (auto-created)
-  VSCode:  Terminal > Run Task > "{project_name}: Start/Stop/Logs/Shell/Update Image"
+  VSCode:  Terminal > Run Task > "{project_name}: Start/Stop/Logs/Shell/Rebuild"
+           Or right-click docker-compose.{project_name}.yml > Compose Up
 
 Terminal commands:
-  Start:        docker-compose -f docker-compose.{project_name}.yml up -d
-  Stop:         docker-compose -f docker-compose.{project_name}.yml down
-  Logs:         docker-compose -f docker-compose.{project_name}.yml logs -f odoo
-  Shell:        docker-compose -f docker-compose.{project_name}.yml exec odoo bash
-  Update Image: docker pull alakosha/odoo-image:{version}.0 && docker-compose -f docker-compose.{project_name}.yml up -d
+  Start:   docker-compose -f docker-compose.{project_name}.yml up -d
+  Stop:    docker-compose -f docker-compose.{project_name}.yml down
+  Logs:    docker-compose -f docker-compose.{project_name}.yml logs -f odoo
+  Shell:   docker-compose -f docker-compose.{project_name}.yml exec odoo bash
+  Rebuild: docker-compose -f docker-compose.{project_name}.yml up -d --build
 
 Note: Only one project container can run at a time on these ports.
 Stop the current one before starting another.
@@ -197,12 +198,12 @@ Stop the current one before starting another.
 
 | Version | Postgres Image | Gevent Config Key  |
 |---------|----------------|--------------------|
-| 14      | postgres:13    | longpolling_port   |
-| 15      | postgres:13    | longpolling_port   |
-| 16      | postgres:14    | longpolling_port   |
-| 17      | postgres:15    | gevent_port        |
-| 18      | postgres:16    | gevent_port        |
-| 19      | postgres:16    | gevent_port        |
+| 14      | postgres:12    | longpolling_port   |
+| 15      | postgres:12    | longpolling_port   |
+| 16      | postgres:12    | longpolling_port   |
+| 17      | postgres:12    | gevent_port        |
+| 18      | postgres:15    | gevent_port        |
+| 19      | postgres:15    | gevent_port        |
 
 All versions use the same standard ports:
 - HTTP: 8069
@@ -270,31 +271,29 @@ services:
     restart: unless-stopped
 
   odoo:
-    image: alakosha/odoo-image:{version}.0
+    build:
+      context: .
     container_name: {project_name}_{version}_web
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - .:/opt/odoo/source:ro
-      - ./project-addons:/opt/odoo/custom-addons
+      - ./projects:/opt/odoo/custom-addons
       - ./conf/{project_name}.conf:/etc/odoo/odoo.conf:ro
       - ./logs:/var/log/odoo
-      - {project_name}_{version}_data:/var/lib/odoo
+      - {project_name}_{version}_filestore:/var/lib/odoo
     ports:
       - "8069:8069"
       - "8072:8072"
-      # Uncomment to enable remote debugger (set ENABLE_DEBUGGER=1 in .env):
-      # - "5678:5678"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-odoo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       DEV_MODE: ${DEV_MODE:-0}
       ENABLE_DEBUGGER: ${ENABLE_DEBUGGER:-0}
-      # WAIT_FOR_DB: ${WAIT_FOR_DB:-0}
-      # LOG_LEVEL: ${LOG_LEVEL:-}
-      # ODOO_EXTRA_ARGS: ${ODOO_EXTRA_ARGS:-}
+      SOURCE_CACHE: ${SOURCE_CACHE:-auto}
+      WAIT_FOR_DB: "1"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8069/web/health || curl -sf http://localhost:8069/web/login || exit 1"]
       interval: 30s
@@ -305,7 +304,7 @@ services:
 
 volumes:
   {project_name}_{version}_db_data:
-  {project_name}_{version}_data:
+  {project_name}_{version}_filestore:
 ```
 
 Where:
@@ -331,6 +330,11 @@ Generate `.idea/runConfigurations/{project_name}_docker.xml` with these contents
   </configuration>
 </component>
 ```
+
+Where:
+- `{project_name}` = selected project name
+
+This creates a PyCharm run configuration that uses the project-specific docker-compose file.
 
 ---
 
@@ -374,9 +378,9 @@ For a **new** `tasks.json`, generate:
       "presentation": { "reveal": "always", "panel": "dedicated" }
     },
     {
-      "label": "{project_name}: Update Image",
+      "label": "{project_name}: Rebuild",
       "type": "shell",
-      "command": "docker pull alakosha/odoo-image:{resolved_version}.0 && docker-compose -f docker-compose.{project_name}.yml up -d",
+      "command": "docker-compose -f docker-compose.{project_name}.yml up -d --build",
       "group": "build",
       "presentation": { "reveal": "always", "panel": "shared" }
     }
@@ -384,19 +388,20 @@ For a **new** `tasks.json`, generate:
 }
 ```
 
+For an **existing** `tasks.json`, append the 5 task objects above to the existing `tasks` array. This allows multiple projects to coexist in the same tasks file.
+
 Where:
 - `{project_name}` = selected project name
-- `{resolved_version}` = the actual version number detected in Step 2 (e.g. `14`) — hardcoded at generation time
 
 ---
 
 ## Error Handling
 
 - **Docker not running**: Check `docker info` first. If fails, abort with clear message.
-- **release.py not found**: If `odoo/release.py` doesn't exist, ask user to select version manually using `AskUserQuestion`.
-- **No projects found**: Tell user to clone project into `project-addons/` first. Show expected folder structure with `gh repo clone` example.
+- **Branch not recognized**: Fall back to asking user which Odoo version.
+- **No projects found**: Tell user to clone project first. Show expected folder structure with `gh repo clone` example.
 - **No modules found**: Warn but proceed. Project may have modules added later.
 - **Config/compose already exists**: Ask user before overwriting.
-- **Image pull fails**: Show docker pull error and suggest checking Docker Hub access or internet connection.
+- **Build fails**: Show docker build logs and suggest checking Dockerfile.
 - **Port conflict**: If containers fail to start, suggest stopping other containers first with `docker-compose down`.
 - **Special characters in project name**: Replace spaces and special characters with underscores for container names.
