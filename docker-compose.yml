@@ -40,6 +40,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       DEV_MODE: ${DEV_MODE:-0}
       ENABLE_DEBUGGER: ${ENABLE_DEBUGGER:-0}
+      SOURCE_CACHE: ${SOURCE_CACHE:-auto}
       # WAIT_FOR_DB: ${WAIT_FOR_DB:-0}
       # LOG_LEVEL: ${LOG_LEVEL:-}
       # ODOO_EXTRA_ARGS: ${ODOO_EXTRA_ARGS:-}
